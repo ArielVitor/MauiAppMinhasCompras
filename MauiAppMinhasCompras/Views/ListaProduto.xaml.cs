@@ -8,18 +8,23 @@ public partial class ListaProduto : ContentPage
 {
 	ObservableCollection<Produto> lista = new ObservableCollection<Produto>();
 
+	private CancellationTokenSource _cancellationTokenSource;
+
+
 	public ListaProduto()
 	{
 		InitializeComponent();
 
 		lst_produtos.ItemsSource = lista;
+
 	}
 
     protected async override void OnAppearing()
     {
 		List<Produto> tmp = await App.Db.GetAll();
 
-		tmp.ForEach(i => lista.Add(i));
+        lista.Clear();
+        tmp.ForEach(i => lista.Add(i));
     }
 
     private void ToolbarItem_Clicked(object sender, EventArgs e)
@@ -38,11 +43,35 @@ public partial class ListaProduto : ContentPage
     {
 		string q = e.NewTextValue;
 
-		lista.Clear();
+        _cancellationTokenSource?.Cancel();
+        _cancellationTokenSource = new CancellationTokenSource();
 
-        List<Produto> tmp = await App.Db.Search(q);
+        try
+        {
+            await Task.Delay(300, _cancellationTokenSource.Token);
 
-        tmp.ForEach(i => lista.Add(i));
+            if (string.IsNullOrEmpty(q))
+            {
+                lista.Clear();
+                List<Produto> allProducts = await App.Db.GetAll();
+                allProducts.ForEach(p => lista.Add(p));
+            }
+            else
+            {
+                List<Produto> filteredProducts = await App.Db.Search(q);
+                lista.Clear();
+                filteredProducts.ForEach(p => lista.Add(p));
+            }
+        }
+        catch (TaskCanceledException)
+        {
+
+        }
+        catch (Exception ex) 
+        {
+            DisplayAlert("Ops", ex.Message, "OK");
+        }
+
     }
 
     private void ToolbarItem_Clicked_1(object sender, EventArgs e)
